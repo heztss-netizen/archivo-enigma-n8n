@@ -1,0 +1,98 @@
+name: Continuar Venus desde primera escena
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/continuar-venus.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  short:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: python -m pip install fal-client requests
+      - uses: actions/download-artifact@v4
+        with:
+          name: primera-prueba-venus-kling
+          run-id: 40473432529
+          github-token: ${{ github.token }}
+      - name: Crear Short de prueba
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          cat > /tmp/short.py <<'PY'
+          import json, subprocess, requests, os, base64
+          import fal_client
+          from pathlib import Path
+          if not os.environ.get('FAL_KEY'):
+              raise SystemExit('Falta FAL_KEY')
+          def download(url, path):
+              r = requests.get(url, timeout=(30, 300))
+              r.raise_for_status()
+              Path(path).write_bytes(r.content)
+          def call(model, args, record):
+              data = fal_client.subscribe(model, arguments=args)
+              Path(record).write_text(json.dumps(data), encoding='utf-8')
+              return data
+          visual = [
+              "A charming stylized 3D animated space explorer, a young Latina woman with short dark wavy hair, teal astronaut suit and orange mission patch, inside a cinematic spaceship overlooking Venus. She points excitedly toward the glowing planet and turns to look at the camera. Smooth character animation and camera movement, vertical composition, high quality animated film, no text, no logos.",
+              "Continue this exact scene preserving the exact same young Latina space explorer, short dark wavy hair, teal astronaut suit and orange mission patch. She gestures toward a rotating model of Venus, a slow orbiting spaceship visible through the window. Smooth cinematic movement, consistent character and scene, vertical, no text.",
+              "Continue this exact scene preserving the exact same young Latina space explorer, short dark wavy hair, teal astronaut suit and orange mission patch. She makes a surprised reaction and points to the glowing planet as the camera gently moves closer. Smooth animation, consistent face and setting, vertical, no text."
+          ]
+          lines = [
+              "Venus tiene un récord que parece imposible.",
+              "Tarda doscientos cuarenta y tres días terrestres en girar una vez sobre su eje.",
+              "Pero solo tarda doscientos veinticinco días en dar la vuelta al Sol. Su giro dura más que su año."
+          ]
+          caps = [
+              ["VENUS TIENE", "UN RÉCORD INCREÍBLE"],
+              ["243 DÍAS", "PARA GIRAR UNA VEZ"],
+              ["225 DÍAS", "PARA ORBITAR EL SOL"]
+          ]
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-sseof','-0.08','-i','clip_0.mp4','-frames:v','1','ultimo.png'],check=True)
+          for i in range(1,3):
+              if i == 0:
+                  model = 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video'
+                  args = {'prompt': visual[i], 'duration':'10', 'aspect_ratio':'9:16'}
+              else:
+                  img = 'data:image/png;base64,' + base64.b64encode(Path('ultimo.png').read_bytes()).decode('ascii')
+                  model = 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video'
+                  args = {'prompt': visual[i], 'image_url':img, 'duration':'10'}
+              data = call(model, args, f'video_{i}.json')
+              download(data['video']['url'], f'clip_{i}.mp4')
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-sseof','-0.08','-i',f'clip_{i}.mp4','-frames:v','1','ultimo.png'],check=True)
+          for i, line in enumerate(lines):
+              data = call('fal-ai/minimax/speech-2.6-hd', {'prompt':line, 'voice_setting':{'voice_id':'Wise_Woman','speed':1.0}}, f'audio_{i}.json')
+              download(data['audio']['url'],f'voz_{i}.mp3')
+          with open('subtitulos.ass','w',encoding='utf-8') as f:
+              f.write('[Script Info]\nScriptType: v4.00+\nPlayResX: 720\nPlayResY: 1280\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,DejaVu Sans,33,&H00FFFFFF,&H00FFFFFF,&H00121520,&H70000000,-1,0,0,0,100,100,0,0,1,2,1,2,55,55,220,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n')
+              for i, pairs in enumerate(caps):
+                  for j, text in enumerate(pairs):
+                      start=i*10+j*5
+                      end=start+5
+                      f.write(f'Dialogue: 0,0:00:{start:02d}.00,0:00:{end:02d}.00,Default,,0,0,0,,{text}\n')
+          for i in range(3):
+              dur=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',f'voz_{i}.mp3']).decode())
+              speed=max(1.0,dur/9.2)
+              if speed>1.6:
+                  raise SystemExit('Narración demasiado larga; revisión necesaria')
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-i',f'clip_{i}.mp4','-i',f'voz_{i}.mp3','-filter_complex',f'[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1[v];[1:a]atempo={speed},apad=pad_dur=10[a]','-map','[v]','-map','[a]','-t','10','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac',f'parte_{i}.mp4'],check=True)
+          Path('lista.txt').write_text("".join(f"file 'parte_{i}.mp4'\n" for i in range(3)))
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','lista.txt','-vf','ass=subtitulos.ass','-c:v','libx264','-preset','veryfast','-crf','21','-c:a','aac','short_venus.mp4'],check=True)
+          PY
+          python /tmp/short.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: primera-prueba-venus-kling
+          path: |
+            short_venus.mp4
+            clip_*.mp4
+            voz_*.mp3
+            subtitulos.ass
+            *_*.json
+          retention-days: 7
