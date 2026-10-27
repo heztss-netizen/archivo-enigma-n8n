@@ -1,0 +1,48 @@
+name: Prueba LongCat con recuperación
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/longcat-prueba-2.yml'
+permissions:
+  contents: read
+jobs:
+  animar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install fal-client requests
+      - name: Crear un clip de cinco segundos
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          python - <<'PY'
+          import os, requests, fal_client
+          if not os.environ.get("FAL_KEY"):
+              raise SystemExit("Falta el secreto FAL_KEY")
+          url=fal_client.upload_file("assets/escena-wow.jpg")
+          resultado=fal_client.subscribe(
+              "fal-ai/longcat-video/distilled/image-to-video/720p",
+              arguments={
+                  "prompt": "Animate this scene as a cinematic 3D animated film. The astronomer notices the mysterious signal, gently lifts the paper, blinks and reacts with surprise. Subtle moving lights and stars, smooth natural motion, slow camera push-in. Preserve the exact same character, face, glasses, outfit, environment and composition. No scene cut, no added text.",
+                  "image_url":url,
+                  "num_frames":162, "fps":30
+              }
+          )
+          with open('resultado.json', 'w') as f:
+              import json
+              json.dump(resultado, f)
+          video=requests.get(resultado["video"]["url"],timeout=(20,300))
+          video.raise_for_status()
+          with open("clip-wow.mp4","wb") as salida:
+              salida.write(video.content)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: animacion-longcat-recuperacion
+          path: |
+            clip-wow.mp4
+            resultado.json
+          retention-days: 7
