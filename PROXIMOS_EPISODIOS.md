@@ -18,8 +18,13 @@ Guion: «La Luna se está alejando de nosotros, pero no saldrá disparada mañan
 Escenas: ingeniera observa la Luna; visualización de separación señalada como exagerada; rayo láser y reflector; Tierra y Luna con interacción de mareas.
 Fuentes: NASA JPL, https://www.jpl.nasa.gov/news/apollo-11-experiment-continues-to-return-valuable-data/ y NASA Science, https://science.nasa.gov/solar-system/moon/10-things-what-we-learn-about-earth-by-studying-the-moon/
 
-## 3. La Tierra antes de los anillos de Saturno
-Estado: sin verificar; no generar ni publicar hasta encontrar estudios apropiados y formular con incertidumbre. Sustituirlo si el respaldo no resulta suficientemente claro.
+## 3. El atardecer azul de Marte
+Tema: ciencia y exploración. Personaje: pequeño robot explorador expresivo, distinto de los personajes de otros episodios.
+
+Guion: «En Marte, el atardecer puede verse azul. Durante el día, el cielo suele verse rojizo por el polvo. Pero cuando el Sol se acerca al horizonte, el cielo cerca de él puede adquirir un tono azul grisáceo. Las partículas finas de polvo dispersan la luz de forma diferente a nuestra atmósfera. Los robots de la NASA han fotografiado este paisaje. ¿Te gustaría verlo?»
+
+Escenas: robot en paisaje rojizo; transición al atardecer; detalle del polvo como ilustración; panorama con luz azul cerca del Sol. No mostrar todo el cielo azul ni inventar imágenes científicas reales.
+Fuente: NASA, https://ciencia.nasa.gov/sistema-solar/como-se-ven-los-amaneceres-y-los-atardeceres-en-marte/
 
 ## Reglas de producción
 - Formato vertical 9:16, animación continua y escenas diferentes con continuidad de personaje.
