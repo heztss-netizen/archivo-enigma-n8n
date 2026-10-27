@@ -1,0 +1,76 @@
+name: Venus montaje dinamico
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/venus-dinamico.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  editar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: python -m pip install fal-client requests
+      - uses: actions/download-artifact@v4
+        with:
+          name: primera-prueba-venus-kling
+          run-id: 40474150172
+          github-token: ${{ github.token }}
+      - name: Generar nuevas escenas y editar
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          cat > /tmp/dinamico.py <<'PY'
+          import json, subprocess, requests
+          from pathlib import Path
+          import fal_client
+          prompts=[
+              "Vertical 9:16 cinematic 3D animated educational short. A vivid accurate depiction of Venus as a smooth pale yellow cloud-covered rocky planet, NO bands, no rings, not Jupiter. Venus slowly rotates in space, camera moves dramatically around it. Warm sunlight, no text, fast engaging motion.",
+              "Vertical 9:16 cinematic 3D animated educational visualization. A small stylized rocket follows a clear curved orbit around the blazing Sun while a smooth pale yellow cloud-covered Venus moves along its orbit. The camera sweeps alongside the rocket, smooth lively motion, no text, no numbers.",
+              "Vertical 9:16 cinematic 3D animated film. A cheerful young Latina astronaut with short wavy dark hair, teal spacesuit and orange patch floats in her spaceship, sees through the window a smooth pale yellow cloud-covered planet Venus, reacts with delightful surprise and glides towards the window. Dynamic camera, expressive gesture, no text, no logos."
+          ]
+          for i,prompt in enumerate(prompts):
+              data=fal_client.subscribe('fal-ai/kling-video/v2.5-turbo/pro/text-to-video',arguments={'prompt':prompt,'duration':'5','aspect_ratio':'9:16'})
+              Path(f'dyn_{i}.json').write_text(json.dumps(data))
+              r=requests.get(data['video']['url'],timeout=(30,300));r.raise_for_status()
+              Path(f'dyn_{i}.mp4').write_bytes(r.content)
+          with open('audios.txt','w') as f:
+              for i in range(3): f.write(f"file 'voz_{i}.mp3'\n")
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','audios.txt','-c:a','pcm_s16le','narracion.wav'],check=True)
+          for i,source in enumerate(['clip_0.mp4','dyn_0.mp4','dyn_1.mp4','dyn_2.mp4']):
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-i',source,'-t','4.6','-an','-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p',f'shot_{i}.mp4'],check=True)
+          Path('shots.txt').write_text("".join(f"file 'shot_{i}.mp4'\n" for i in range(4)))
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','shots.txt','-c','copy','escenas.mp4'],check=True)
+          ass='''[Script Info]
+          ScriptType: v4.00+
+          PlayResX: 720
+          PlayResY: 1280
+          [V4+ Styles]
+          Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+          Style: Default,DejaVu Sans,32,&H00FFFFFF,&H00FFFFFF,&H00121520,&H70000000,-1,0,0,0,100,100,0,0,1,2,1,2,65,65,230,1
+          [Events]
+          Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+          Dialogue: 0,0:00:00.00,0:00:02.70,Default,,0,0,0,,VENUS TIENE UN RÉCORD INCREÍBLE
+          Dialogue: 0,0:00:02.70,0:00:05.70,Default,,0,0,0,,243 DÍAS TERRESTRES
+          Dialogue: 0,0:00:05.70,0:00:09.04,Default,,0,0,0,,PARA GIRAR UNA VEZ
+          Dialogue: 0,0:00:09.04,0:00:12.70,Default,,0,0,0,,225 DÍAS PARA ORBITAR EL SOL
+          Dialogue: 0,0:00:12.70,0:00:17.10,Default,,0,0,0,,SU GIRO DURA MÁS QUE SU AÑO
+          '''
+          Path('dinamico.ass').write_text(ass,encoding='utf-8')
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-i','escenas.mp4','-i','narracion.wav','-vf','ass=dinamico.ass','-map','0:v','-map','1:a','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-shortest','venus_dinamico.mp4'],check=True)
+          PY
+          python /tmp/dinamico.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: venus-dinamico
+          path: |
+            venus_dinamico.mp4
+            dyn_*.mp4
+            dyn_*.json
+            dinamico.ass
+          retention-days: 7
