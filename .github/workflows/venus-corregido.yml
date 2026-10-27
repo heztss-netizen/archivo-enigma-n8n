@@ -1,0 +1,66 @@
+name: Venus corregido
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/venus-corregido.yml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  editar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: python -m pip install fal-client requests
+      - uses: actions/download-artifact@v4
+        with:
+          name: primera-prueba-venus-kling
+          run-id: 40474150172
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: venus-dinamico
+          run-id: 40503721444
+          github-token: ${{ github.token }}
+      - name: Corregir escenas
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          cat > /tmp/corregir.py <<'PY'
+          import json,subprocess,requests
+          from pathlib import Path
+          import fal_client
+          prompts=[
+              "A scientifically accurate illustration of Venus, a single small smooth pale ivory-yellow rocky planet completely covered in thick featureless light cream clouds, NO stripes, no rings, no blue, not Jupiter, against a black starfield. Slowly rotating with a smooth close camera approach. Beautiful stylized 3D educational animation, no text, vertical.",
+              "Educational diagram as cinematic animated 3D film, a single small smooth cream colored rocky planet Venus without stripes or rings circles the golden sun, visible curved orbit trail. The camera moves smoothly to follow Venus, correct solar system, no other planets, no text, vertical."
+          ]
+          for i,p in enumerate(prompts):
+              d=fal_client.subscribe('fal-ai/kling-video/v2.5-turbo/pro/text-to-video',arguments={'prompt':p,'duration':'5','aspect_ratio':'9:16'})
+              Path(f'corregido_{i}.json').write_text(json.dumps(d))
+              r=requests.get(d['video']['url'],timeout=(30,300));r.raise_for_status()
+              Path(f'corregido_{i}.mp4').write_bytes(r.content)
+          sources=['clip_0.mp4','corregido_0.mp4','corregido_1.mp4','clip_2.mp4']
+          for i,src in enumerate(sources):
+              filt='scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1'
+              if i in (0,3):
+                  filt='crop=iw*0.55:ih*0.55:iw*0.45:ih*0.13,scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1'
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-i',src,'-t','4.6','-an','-vf',filt,'-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p',f'toma_{i}.mp4'],check=True)
+          Path('listav.txt').write_text(''.join(f"file \'toma_{i}.mp4\'\n" for i in range(4)))
+          Path('listaa.txt').write_text(''.join(f"file \'voz_{i}.mp3\'\n" for i in range(3)))
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','listav.txt','-c','copy','imagenes.mp4'],check=True)
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','listaa.txt','-c:a','pcm_s16le','voz.wav'],check=True)
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-i','imagenes.mp4','-i','voz.wav','-vf','ass=dinamico.ass','-map','0:v','-map','1:a','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-shortest','venus_corregido.mp4'],check=True)
+          PY
+          python /tmp/corregir.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: venus-corregido
+          path: |
+            venus_corregido.mp4
+            corregido_*.mp4
+            corregido_*.json
+          retention-days: 7
