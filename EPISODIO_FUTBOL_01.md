@@ -1,9 +1,9 @@
-# Episodio 1: El gol mundialista más rápido
+# Episodio 1: La tijera de Manuel Negrete
 
-Estado: guion y plan visual; video no generado ni programado.
+Estado: guion y plan visual. Video no generado ni programado.
 
-Guion: «¡Once segundos! Eso tardó Hakan Şükür en marcar para Turquía contra Corea del Sur en el Mundial de 2002. Ocurrió en el partido por el tercer lugar. Turquía ganó tres a dos. ¿Te imaginas que tu equipo anote antes de que te sientes?»
+Guion: «¿Sabías que un gol de México fue elegido el mejor en la historia de los Mundiales por aficionados de FIFA? En 1986, Manuel Negrete marcó con una tijera espectacular contra Bulgaria en el Estadio Azteca. México ganó dos a cero. En 2018, su gol ganó una votación de aficionados. ¿Tú lo pondrías en el número uno?»
 
-Fuente: FIFA, https://www.fifa.com/en/articles/quickest-fastest-goals. Verificar récord antes de publicar.
+Fuentes: FIFA https://inside.fifa.com/es/tournaments/mens/worldcup/2018russia/news/la-volea-de-negrete-elegida-mejor-gol-de-la-historia-de-la-copa-mundial y https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/wonder-goals-golazos-estadio-azteca-world-cup-carlos-alberto-manuel-negrete-diego-maradona
 
-Escenas: 1) aficionado caricaturesco entra a estadio y mira cronómetro; 2) secuencia de fútbol animada genérica, jugadores en movimiento; 3) balón llega a la red y celebración; 4) aficionado sorprendido. Usar continuidad visual, sin marcas ni grabación real; ilustración de IA, sin presentar recreación como jugada exacta. Voz natural en español y subtítulos fieles. Revisar calidad, sincronía y coste antes de publicar.
+Visual: hincha animado en estadio, futbolista estilizado con uniforme verde genérico, pase y tijera recreados, gol y reacción del hincha. Escenas continuas y dinámicas, personajes consistentes. Etiquetar recreación con IA, no presentarla como grabación real. Voz natural y subtítulos fieles; revisar antes de programar.
