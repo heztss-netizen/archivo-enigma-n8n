@@ -1,0 +1,52 @@
+name: Montar Negrete sin regenerar
+on:
+  push:
+    paths: ['.github/workflows/montar-negrete.yml']
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  editar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: episodio-negrete
+          run-id: 40575681826
+          github-token: ${{ github.token }}
+      - name: Montar material existente
+        run: |
+          python3 - <<'PY'
+          import subprocess, textwrap
+          from pathlib import Path
+          lines=["¿Un gol mexicano fue elegido el mejor de los Mundiales?","En mil novecientos ochenta y seis, Manuel Negrete marcó una tijera contra Bulgaria.","En dos mil dieciocho, aficionados lo eligieron en una votación de FIFA."]
+          durations=[]
+          for i in range(3):
+              d=float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',f'voz_{i}.mp3']))
+              durations.append(d)
+              filt=f'scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1,setpts={d/5:.6f}*PTS'
+              subprocess.run(['ffmpeg','-v','error','-y','-i',f'clip_{i}.mp4','-i',f'voz_{i}.mp3','-vf',filt,'-t',str(d),'-c:v','libx264','-preset','veryfast','-crf','22','-c:a','aac','-ar','48000','-ac','2',f'part_{i}.mp4'],check=True)
+          Path('list.txt').write_text(''.join(f"file 'part_{i}.mp4'\n" for i in range(3)))
+          subprocess.run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i','list.txt','-c','copy','joined.mp4'],check=True)
+          def ts(t):
+              c=round(t*100);return f'0:{c//6000:02d}:{c//100%60:02d}.{c%100:02d}'
+          h='[Script Info]\nScriptType: v4.00+\nPlayResX: 720\nPlayResY: 1280\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,DejaVu Sans,31,&H00FFFFFF,&H00FFFFFF,&H00121520,&H70000000,-1,0,0,0,100,100,0,0,1,2,1,2,65,65,230,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
+          t=0
+          for line,d in zip(lines,durations):
+              pieces=textwrap.wrap(line, width=28)
+              n=len(pieces)
+              for j,p in enumerate(pieces):
+                  h+=f'Dialogue: 0,{ts(t+d*j/n)},{ts(t+d*(j+1)/n)},Default,,0,0,0,,{p}\n'
+              t+=d
+          Path('subtitulos.ass').write_text(h)
+          subprocess.run(['ffmpeg','-v','error','-y','-i','joined.mp4','-vf','ass=subtitulos.ass','-c:v','libx264','-preset','veryfast','-crf','21','-c:a','copy','negrete.mp4'],check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: negrete-montado
+          path: |
+            negrete.mp4
+            subtitulos.ass
+          retention-days: 7
