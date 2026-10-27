@@ -1,0 +1,74 @@
+name: Episodio pulpo
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/episodio-pulpo.yml'
+permissions:
+  contents: read
+jobs:
+  producir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: python -m pip install fal-client requests
+      - name: Generar y montar
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          cat > /tmp/pulpo.py <<'PY'
+          import subprocess, requests, json
+          from pathlib import Path
+          import fal_client
+          def download(url,path):
+              r=requests.get(url,timeout=(30,300));r.raise_for_status();Path(path).write_bytes(r.content)
+          prompts=[
+            "Vertical 9:16 lively cinematic stylized 3D animated film underwater. One charming small coral-orange octopus with big expressive amber eyes and eight curling arms swims briskly past a coral reef, sees camera and reacts with surprise, bubbles and flowing water, dynamic smooth motion, no text or logos.",
+            "Same small coral-orange octopus with expressive amber eyes and eight arms explores a vivid coral reef, gestures towards its gills, camera follows with dynamic fluid movement, beautiful stylized cinematic 3D animation underwater, no text or logos.",
+            "Same small coral-orange octopus with expressive amber eyes and eight arms swims through underwater kelp and waves at the camera, playful character acting and smooth camera movement, cinematic stylized 3D animated educational film, no text or logos."
+          ]
+          lines=[
+            "Este animal tiene tres corazones.",
+            "Dos impulsan la sangre hacia sus branquias.",
+            "El tercero la envía al resto de su cuerpo. ¡Es un pulpo!"
+          ]
+          for i,p in enumerate(prompts):
+              d=fal_client.subscribe('fal-ai/kling-video/v2.5-turbo/pro/text-to-video',arguments={'prompt':p,'duration':'5','aspect_ratio':'9:16'})
+              download(d['video']['url'],f'clip_{i}.mp4')
+              a=fal_client.subscribe('fal-ai/minimax/speech-2.6-hd',arguments={'prompt':lines[i],'voice_setting':{'voice_id':'Wise_Woman','speed':1.0}})
+              download(a['audio']['url'],f'voz_{i}.mp3')
+          audios=[]
+          for i in range(3):
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-i',f'voz_{i}.mp3','-ar','48000','-ac','1',f'voz_{i}.wav'],check=True)
+              audios.append(float(subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nw=1:nk=1',f'voz_{i}.wav'])))
+          Path('audios.txt').write_text(''.join("file 'voz_%d.wav'\n"%i for i in range(3)))
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','audios.txt','-c','copy','voz.wav'],check=True)
+          duration=sum(audios)
+          if duration>15: raise SystemExit('Audio excede los 15 segundos de animación; revisar montaje.')
+          for i in range(3):
+              subprocess.run(['ffmpeg','-loglevel','error','-y','-i',f'clip_{i}.mp4','-t','5','-an','-vf','scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24,setsar=1','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p',f'toma_{i}.mp4'],check=True)
+          Path('videos.txt').write_text(''.join("file 'toma_%d.mp4'\n"%i for i in range(3)))
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-f','concat','-safe','0','-i','videos.txt','-c','copy','video.mp4'],check=True)
+          header='[Script Info]\nScriptType: v4.00+\nPlayResX: 720\nPlayResY: 1280\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,DejaVu Sans,31,&H00FFFFFF,&H00FFFFFF,&H00121520,&H70000000,-1,0,0,0,100,100,0,0,1,2,1,2,65,65,230,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n'
+          def ts(t):
+              cs=round(t*100); return f'0:{cs//6000:02d}:{(cs//100)%60:02d}.{cs%100:02d}'
+          caps=['Este animal tiene\\Ntres corazones.','Dos impulsan la sangre\\nhacia sus branquias.','El tercero la envía al resto\\nde su cuerpo. ¡Es un pulpo!']
+          t=0
+          for d,c in zip(audios,caps):
+              header+=f'Dialogue: 0,{ts(t)},{ts(t+d)},Default,,0,0,0,,{c}\n';t+=d
+          Path('subtitulos.ass').write_text(header,encoding='utf8')
+          subprocess.run(['ffmpeg','-loglevel','error','-y','-i','video.mp4','-i','voz.wav','-vf','ass=subtitulos.ass','-map','0:v','-map','1:a','-c:v','libx264','-preset','veryfast','-crf','21','-pix_fmt','yuv420p','-c:a','aac','-shortest','pulpo.mp4'],check=True)
+          PY
+          python /tmp/pulpo.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: episodio-pulpo
+          path: |
+            pulpo.mp4
+            clip_*.mp4
+            voz_*.mp3
+            subtitulos.ass
+          retention-days: 7
