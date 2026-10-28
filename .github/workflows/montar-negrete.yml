@@ -16,6 +16,7 @@ jobs:
           name: episodio-negrete
           run-id: 40575681826
           github-token: ${{ github.token }}
+      - run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - name: Montar material existente
         run: |
           python3 - <<'PY'
