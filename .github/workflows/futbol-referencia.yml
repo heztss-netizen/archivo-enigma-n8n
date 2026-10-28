@@ -1,0 +1,38 @@
+name: Nueva prueba fútbol cinematográfica
+on:
+  push:
+    paths: ['.github/workflows/futbol-referencia.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  escenas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - run: python -m pip install fal-client requests
+      - name: Generar cinco escenas de fútbol
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          python - <<'PY'
+          import fal_client,requests
+          from pathlib import Path
+          prompts=[
+          "Vertical 9:16 cinematic animated 3D film, realistic textured expressive young Mexican football fan in green plain shirt, in a bustling 1980s Mexican stadium, looks amazed, energetic camera move through crowd, detailed lighting, no text no logos",
+          "Vertical cinematic stylized 3D animated film, close up of the same expressive young Mexican football fan with black wavy hair and plain green shirt reacting with excitement in stadium, fluid natural gestures, warm light, no text or logos",
+          "Vertical high quality cinematic 3D animation, footballer in plain green uniform and white shorts runs toward ball in packed stadium, expressive action, dynamic tracking shot, 1980s atmosphere, no logos no text",
+          "Vertical cinematic stylized 3D animation, footballer wearing plain green jersey and white shorts receives airborne ball and performs a scissors kick, smooth natural motion, ball flies toward goal, dynamic angle, no text no logos",
+          "Vertical detailed cinematic 3D animation, expressive young Mexican football fan with black wavy hair and plain green shirt jumps in celebration among cheering supporters in a stadium, football reaches net, fluid action, warm lights, no text no logos"
+          ]
+          for i,p in enumerate(prompts):
+              result=fal_client.subscribe('fal-ai/kling-video/v2.5-turbo/pro/text-to-video',arguments={'prompt':p,'duration':'5','aspect_ratio':'9:16'})
+              r=requests.get(result['video']['url'],timeout=(30,300));r.raise_for_status()
+              Path(f'escena_{i}.mp4').write_bytes(r.content)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: futbol-referencia-escenas
+          path: escena_*.mp4
+          retention-days: 7
